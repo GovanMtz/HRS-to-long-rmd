@@ -1,0 +1,94 @@
+---
+title: "Retirement Variables"
+author: "Giovanni"
+date: "2025-05-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(haven)
+library(dplyr)
+library(tidyr)
+library(stringr)
+
+current_wave <- 16  # change this to the number of waves
+                    # in the dataset you are using 
+                    # 16 is for the year 2022
+
+df <- read_dta("randhrs1992_2022v1.dta")
+```
+
+
+**RwIEARN** : Sum or respondent's wages including all sources of income
+              w stands for wave
+
+
+## Selecting Variables of Interest
+
+```{r}
+constants <- c("hhidpn")  # Put variables constant over time in here
+rcolumns <- c() 
+var_cols <- c("r%diearn") # Put variables that change each wave 
+                          # with `%d` instead of wave as a string
+
+# note if using the datasets published by the HRS variables 
+# are stored in all caps while RAND using lowercase
+
+
+for (number in 1:current_wave) {
+  for (col in var_cols) {
+    rcolumns <- c(rcolumns, sprintf(col, number))
+  }
+}
+
+
+df_sub <- df %>%
+  select(all_of(constants), all_of(rcolumns)) # subset of original data 
+                                              # with variables of interest
+                                              # maintaining HRS convention
+
+```
+
+
+
+
+
+```{r}
+
+name_df <- data.frame(Question = character(),
+                 Wave = integer()
+                 )
+
+# create a df 'key' that we can join later
+for (number in 1:current_wave) {
+  for (col in var_cols) {
+    name_df <- rbind(name_df, data.frame(Question = sprintf(col, number), Wave = number))
+  }
+} 
+
+# create a Wave column each observation can now be defined by 
+# `Wave` and `hhidpn`
+long_df <- df_sub %>%
+  pivot_longer(cols = name_df$Question,
+               names_to = "Question",
+               values_to = "Response") %>%
+  left_join(name_df, by = "Question") %>%
+  mutate(Question = str_remove_all(Question, "[0-9]")) %>%
+  pivot_wider(names_from = Question,
+              values_from = Response)
+
+rm(name_df)
+```
+
+
+The dataset comes from the Health and Retirement Study. Specifically I used the longitudinal file:
+
+Health and Retirement Study, (RAND HRS Longitudinal File 2022 (V1)) public use dataset. Produced
+and distributed by the University of Michigan with funding from the National Institute on Aging (grant numbers
+NIA U01AG009740 and NIA R01AG073289). Ann Arbor, MI, (May 2025).
+
+
+RAND HRS Longitudinal File 2022 (V1). Produced by the RAND Center for the Study of Aging, with
+funding from the National Institute on Aging and the Social Security Administration. Santa Monica, CA (May
+2025).
